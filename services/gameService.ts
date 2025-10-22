@@ -11,6 +11,15 @@ export interface GameState {
   game_over: boolean;
   target_word?: string;
   started_at: string;
+  clues_used?: number;
+  clues_available?: string[];
+}
+
+export interface ClueResponse {
+  game_id: string;
+  clue: string;
+  clue_number: number;
+  remaining_clues: number;
 }
 
 export interface Guess {
@@ -127,6 +136,22 @@ class GameService {
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.detail || "Failed to give up");
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Get a clue for the current game (up to 3 clues)
+   */
+  async getClue(gameId: string): Promise<ClueResponse> {
+    const response = await fetch(`${API_BASE_URL}/game/${gameId}/clue`, {
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || "Failed to get clue");
     }
 
     return response.json();

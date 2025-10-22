@@ -18,6 +18,8 @@ export default function SemantleGame() {
   const [loading, setLoading] = useState(false);
   const [apiConnected, setApiConnected] = useState<boolean | null>(null);
   const [error, setError] = useState<string>("");
+  const [cluesUsed, setCluesUsed] = useState(0);
+  const [currentClue, setCurrentClue] = useState<string>("");
 
   // Memoize similarity color calculation
   const getSimilarityColor = useCallback((similarity: number): string => {
@@ -106,6 +108,33 @@ export default function SemantleGame() {
       }
     }
   }, [gameState, startNewGame]);
+
+  const handleGetClue = useCallback(async () => {
+    if (!gameState || loading) return;
+
+    if (cluesUsed >= 3) {
+      alert("השתמשת בכל הרמזים!");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const clueResponse = await gameService.getClue(gameState.game_id);
+      setCurrentClue(clueResponse.clue);
+      setCluesUsed(clueResponse.clue_number);
+
+      // Auto-hide clue after 10 seconds
+      setTimeout(() => {
+        setCurrentClue("");
+      }, 10000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "שגיאה בקבלת רמז");
+    } finally {
+      setLoading(false);
+    }
+  }, [gameState, loading, cluesUsed]);
 
   const getTemperatureEmoji = useCallback((similarity: number): string => {
     if (similarity >= 80) return "🔥🔥🔥";
@@ -224,6 +253,29 @@ export default function SemantleGame() {
             <Text style={styles.errorText}>{error}</Text>
           </View>
         )}
+
+        {/* Clue Display */}
+        {currentClue && (
+          <View style={styles.clueDisplay}>
+            <Text style={styles.clueLabel}>💡 רמז {cluesUsed}/3:</Text>
+            <Text style={styles.clueText}>{currentClue}</Text>
+          </View>
+        )}
+
+        {/* Action Buttons */}
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
+            style={[
+              styles.clueButton,
+              (loading || cluesUsed >= 3 || gameState.game_over) &&
+                styles.clueButtonDisabled,
+            ]}
+            onPress={handleGetClue}
+            disabled={loading || cluesUsed >= 3 || gameState.game_over}
+          >
+            <Text style={styles.clueButtonText}>💡 רמז ({cluesUsed}/3)</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Input */}
         <View style={styles.inputContainer}>
@@ -621,5 +673,52 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 8,
     marginTop: 10,
+  },
+  clueDisplay: {
+    backgroundColor: "#fef3c7",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: "#f59e0b",
+  },
+  clueLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#92400e",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  clueText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#78350f",
+    textAlign: "center",
+  },
+  actionButtons: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 16,
+    gap: 10,
+  },
+  clueButton: {
+    backgroundColor: "#f59e0b",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    elevation: 2,
+    // boxShadow: "#000",
+    // shadowOffset: { width: 0, height: 2 },
+    // shadowOpacity: 0.1,
+    // shadowRadius: 4,
+  },
+  clueButtonDisabled: {
+    backgroundColor: "#d1d5db",
+    opacity: 0.6,
+  },
+  clueButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "700",
   },
 });
