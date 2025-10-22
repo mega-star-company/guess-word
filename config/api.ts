@@ -7,7 +7,8 @@
 // For physical device, use your computer's IP address
 const getApiUrl = () => {
   // Development mode - adjust based on your setup
-  const LOCAL_IP = "localhost"; // Change to your computer's IP if testing on physical device
+  // Using local network IP so Android phone can connect
+  const LOCAL_IP = "192.168.1.166"; // Your computer's IP on local network
   const PORT = "8080";
 
   return `http://${LOCAL_IP}:${PORT}`;
