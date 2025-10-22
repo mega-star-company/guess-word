@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   StyleSheet,
   TextInput,
@@ -19,21 +19,40 @@ export default function SemantleGame() {
   const [apiConnected, setApiConnected] = useState<boolean | null>(null);
   const [error, setError] = useState<string>("");
 
-  // Check API and start game on mount
-  useEffect(() => {
-    initializeGame();
+  // Memoize similarity color calculation
+  const getSimilarityColor = useCallback((similarity: number): string => {
+    if (similarity >= 80) return "#10b981"; // Green - very hot
+    if (similarity >= 70) return "#84cc16"; // Lime - hot
+    if (similarity >= 60) return "#eab308"; // Yellow - warm
+    if (similarity >= 50) return "#f59e0b"; // Amber
+    if (similarity >= 40) return "#f97316"; // Orange
+    if (similarity >= 30) return "#ef4444"; // Red
+    if (similarity >= 20) return "#3b82f6"; // Blue - cold
+    return "#6b7280"; // Gray - very cold
   }, []);
 
-  const initializeGame = async () => {
+  // Memoize sorted guesses
+  const sortedGuesses = useMemo(() => {
+    if (!gameState?.guesses) return [];
+    return [...gameState.guesses].sort((a, b) => b.similarity - a.similarity);
+  }, [gameState?.guesses]);
+
+  // Initialize game - memoized to prevent recreation
+  const initializeGame = useCallback(async () => {
     const connected = await gameService.checkHealth();
     setApiConnected(connected);
 
     if (connected) {
       startNewGame(true); // Start in daily mode
     }
-  };
+  }, []);
 
-  const startNewGame = async (dailyMode: boolean = true) => {
+  // Check API and start game on mount
+  useEffect(() => {
+    initializeGame();
+  }, [initializeGame]);
+
+  const startNewGame = useCallback(async (dailyMode: boolean = true) => {
     setLoading(true);
     setError("");
     try {
@@ -45,9 +64,9 @@ export default function SemantleGame() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleGuess = async () => {
+  const handleGuess = useCallback(async () => {
     if (!guessInput.trim() || !gameState || loading) return;
 
     setLoading(true);
@@ -72,9 +91,9 @@ export default function SemantleGame() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [gameState, guessInput, loading]);
 
-  const handleGiveUp = async () => {
+  const handleGiveUp = useCallback(async () => {
     if (!gameState) return;
 
     if (confirm("בטוח שאתה רוצה לוותר?")) {
@@ -86,20 +105,9 @@ export default function SemantleGame() {
         setError("שגיאה בוויתור");
       }
     }
-  };
+  }, [gameState, startNewGame]);
 
-  const getSimilarityColor = (similarity: number): string => {
-    if (similarity >= 80) return "#10b981"; // Green - very hot
-    if (similarity >= 70) return "#84cc16"; // Lime - hot
-    if (similarity >= 60) return "#eab308"; // Yellow - warm
-    if (similarity >= 50) return "#f59e0b"; // Amber
-    if (similarity >= 40) return "#f97316"; // Orange
-    if (similarity >= 30) return "#ef4444"; // Red
-    if (similarity >= 20) return "#3b82f6"; // Blue - cold
-    return "#6b7280"; // Gray - very cold
-  };
-
-  const getTemperatureEmoji = (similarity: number): string => {
+  const getTemperatureEmoji = useCallback((similarity: number): string => {
     if (similarity >= 80) return "🔥🔥🔥";
     if (similarity >= 70) return "🔥🔥";
     if (similarity >= 60) return "🔥";
@@ -108,13 +116,16 @@ export default function SemantleGame() {
     if (similarity >= 30) return "☁️";
     if (similarity >= 20) return "❄️";
     return "🧊";
-  };
+  }, []);
 
-  const getPercentileDisplay = (rank: number, total: number): string => {
-    if (total === 0) return "1000/1000";
-    const percentile = Math.round(((total - rank + 1) / total) * 1000);
-    return `${percentile}/1000`;
-  };
+  const getPercentileDisplay = useCallback(
+    (rank: number, total: number): string => {
+      if (total === 0) return "1000/1000";
+      const percentile = Math.round(((total - rank + 1) / total) * 1000);
+      return `${percentile}/1000`;
+    },
+    []
+  );
 
   // API not connected
   if (apiConnected === false) {
