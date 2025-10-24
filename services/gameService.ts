@@ -13,6 +13,10 @@ export interface GameState {
   started_at: string;
   clues_used?: number;
   clues_available?: string[];
+  // Today's word proximity stats
+  today_word_1_similarity?: number;  // 999/1000
+  today_word_10_similarity?: number;  // 990/1000
+  today_word_1000_similarity?: number;  // 1/1000
 }
 
 export interface ClueResponse {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   StyleSheet,
   TextInput,
@@ -33,19 +33,24 @@ export default function SemantleGame() {
     return "#6b7280"; // Gray - very cold
   }, []);
 
-  // Memoize sorted guesses
-  const sortedGuesses = useMemo(() => {
-    if (!gameState?.guesses) return [];
-    return [...gameState.guesses].sort((a, b) => b.similarity - a.similarity);
-  }, [gameState?.guesses]);
-
   // Initialize game - memoized to prevent recreation
   const initializeGame = useCallback(async () => {
     const connected = await gameService.checkHealth();
     setApiConnected(connected);
 
     if (connected) {
-      startNewGame(true); // Start in daily mode
+      // Start new game inline to avoid dependency
+      setLoading(true);
+      setError("");
+      try {
+        const newGame = await gameService.startGame("normal", true);
+        setGameState(newGame);
+        setGuessInput("");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to start game");
+      } finally {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -103,7 +108,7 @@ export default function SemantleGame() {
         const result = await gameService.giveUp(gameState.game_id);
         alert(`המילה הייתה: ${result.target_word}`);
         startNewGame(true);
-      } catch (err) {
+      } catch {
         setError("שגיאה בוויתור");
       }
     }
@@ -262,22 +267,33 @@ export default function SemantleGame() {
           </View>
         )}
 
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={[
-              styles.clueButton,
-              (loading || cluesUsed >= 3 || gameState.game_over) &&
-                styles.clueButtonDisabled,
-            ]}
-            onPress={handleGetClue}
-            disabled={loading || cluesUsed >= 3 || gameState.game_over}
-          >
-            <Text style={styles.clueButtonText}>💡 רמז ({cluesUsed}/3)</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Today's Word Stats */}
+        {gameState.today_word_1_similarity && (
+          <View style={styles.todayStatsBox}>
+            <Text style={styles.todayStatsText}>
+              <Text style={styles.todayStatsLabel}>מילון המשחק: </Text>
+              המילה הכי קרובה במילון (999/1000) למילה הסודית היום היא בציון{" "}
+              {gameState.today_word_1_similarity.toFixed(1)}
+              {gameState.today_word_10_similarity &&
+                `, העשירית (990/1000) בציון ${gameState.today_word_10_similarity.toFixed(
+                  2
+                )}`}
+              {gameState.today_word_1000_similarity &&
+                ` והאחרונה במילון בציון ${gameState.today_word_1000_similarity.toFixed(
+                  2
+                )}.`}
+            </Text>
+            {topGuess &&
+              topGuess.similarity > gameState.today_word_1_similarity && (
+                <Text style={styles.todayStatsHighlight}>
+                  🎯 הניחוש שלך ({topGuess.word}:{" "}
+                  {topGuess.similarity.toFixed(1)}) קרוב יותר מהמילון!
+                </Text>
+              )}
+          </View>
+        )}
 
-        {/* Input */}
+        {/* Input with Clue and Submit buttons */}
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
@@ -291,6 +307,17 @@ export default function SemantleGame() {
             editable={!loading && !gameState.game_over}
             autoFocus
           />
+          <TouchableOpacity
+            style={[
+              styles.clueButton,
+              (loading || cluesUsed >= 3 || gameState.game_over) &&
+                styles.clueButtonDisabled,
+            ]}
+            onPress={handleGetClue}
+            disabled={loading || cluesUsed >= 3 || gameState.game_over}
+          >
+            <Text style={styles.clueButtonText}>💡 {cluesUsed}/3</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={[
               styles.guessButton,
@@ -494,8 +521,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: 20,
     paddingVertical: 16,
-    gap: 10,
+    gap: 8,
     backgroundColor: "#ffffff",
+    alignItems: "center",
   },
   input: {
     flex: 1,
@@ -509,12 +537,31 @@ const styles = StyleSheet.create({
     color: "#111827",
     textAlign: "right",
   },
+  clueButton: {
+    backgroundColor: "#f59e0b",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    justifyContent: "center",
+    minWidth: 70,
+  },
+  clueButtonDisabled: {
+    backgroundColor: "#d1d5db",
+    opacity: 0.6,
+  },
+  clueButtonText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "center",
+  },
   guessButton: {
     backgroundColor: "#3b82f6",
     paddingHorizontal: 24,
+    paddingVertical: 12,
     borderRadius: 8,
     justifyContent: "center",
-    minWidth: 90,
+    minWidth: 80,
   },
   guessButtonDisabled: {
     backgroundColor: "#9ca3af",
@@ -677,8 +724,9 @@ const styles = StyleSheet.create({
   clueDisplay: {
     backgroundColor: "#fef3c7",
     padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 12,
     borderRadius: 12,
-    marginBottom: 16,
     borderWidth: 2,
     borderColor: "#f59e0b",
   },
@@ -695,30 +743,72 @@ const styles = StyleSheet.create({
     color: "#78350f",
     textAlign: "center",
   },
-  actionButtons: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginBottom: 16,
+  todayStatsBox: {
+    backgroundColor: "#eff6ff",
+    padding: 12,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#bae6fd",
+  },
+  todayStatsText: {
+    fontSize: 13,
+    color: "#0369a1",
+    textAlign: "right",
+    lineHeight: 20,
+  },
+  todayStatsLabel: {
+    fontWeight: "700",
+    color: "#0c4a6e",
+  },
+  todayStatsHighlight: {
+    fontSize: 13,
+    color: "#059669",
+    fontWeight: "700",
+    textAlign: "right",
+    marginTop: 8,
+  },
+  yesterdayBox: {
+    backgroundColor: "#f0f9ff",
+    padding: 16,
+    marginHorizontal: 20,
+    marginTop: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#bae6fd",
+  },
+  yesterdayTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#0c4a6e",
+    marginBottom: 12,
+    textAlign: "right",
+  },
+  yesterdayStats: {
     gap: 10,
   },
-  clueButton: {
-    backgroundColor: "#f59e0b",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    elevation: 2,
-    // boxShadow: "#000",
-    // shadowOffset: { width: 0, height: 2 },
-    // shadowOpacity: 0.1,
-    // shadowRadius: 4,
+  yesterdayStatRow: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0f2fe",
   },
-  clueButtonDisabled: {
-    backgroundColor: "#d1d5db",
-    opacity: 0.6,
+  yesterdayLabel: {
+    fontSize: 13,
+    color: "#0369a1",
+    textAlign: "right",
+    lineHeight: 20,
   },
-  clueButtonText: {
-    color: "#ffffff",
+  yesterdayValue: {
     fontSize: 16,
     fontWeight: "700",
+    color: "#0c4a6e",
+  },
+  yesterdayWord: {
+    fontSize: 12,
+    color: "#075985",
+    marginTop: 2,
+    textAlign: "right",
+    fontStyle: "italic",
   },
 });
