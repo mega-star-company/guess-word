@@ -153,9 +153,10 @@ export default function SemantleGame() {
   }, []);
 
   const getPercentileDisplay = useCallback(
-    (rank: number, total: number): string => {
-      if (total === 0) return "1000/1000";
-      const percentile = Math.round(((total - rank + 1) / total) * 1000);
+    (percentile: number | null | undefined): string => {
+      if (percentile === null || percentile === undefined) {
+        return "—"; // Not in top N
+      }
       return `${percentile}/1000`;
     },
     []
@@ -230,7 +231,7 @@ export default function SemantleGame() {
               <View style={styles.statItem}>
                 <Text style={styles.statLabel}>דירוג</Text>
                 <Text style={styles.statValue}>
-                  {getPercentileDisplay(topGuess.rank, gameState.guess_count)}
+                  {getPercentileDisplay(topGuess.percentile)}
                 </Text>
               </View>
             </>
@@ -344,39 +345,53 @@ export default function SemantleGame() {
             </View>
           )}
 
-          {gameState.guesses.map((guess, index) => (
-            <View
-              key={index}
-              style={[
-                styles.guessItem,
-                { borderLeftColor: getSimilarityColor(guess.similarity) },
-              ]}
-            >
-              <View style={styles.guessLeft}>
-                <Text style={styles.guessRank}>#{guess.rank}</Text>
-                <Text style={styles.guessWord}>
-                  {guess.is_correct && "✅ "}
-                  {guess.word}
-                </Text>
+          {[...gameState.guesses]
+            .sort((a, b) => b.similarity - a.similarity)
+            .map((guess, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.guessItem,
+                  { borderLeftColor: getSimilarityColor(guess.similarity) },
+                ]}
+              >
+                <View style={styles.guessLeft}>
+                  <Text style={styles.guessRank}>#{guess.rank}</Text>
+                  <Text style={styles.guessWord}>
+                    {guess.is_correct && "✅ "}
+                    {guess.word}
+                  </Text>
+                </View>
+                <View style={styles.guessRight}>
+                  {guess.percentile !== null &&
+                  guess.percentile !== undefined ? (
+                    <Text style={styles.guessPercentile}>
+                      {getPercentileDisplay(guess.percentile)}
+                    </Text>
+                  ) : (
+                    <Text
+                      style={[
+                        styles.guessPercentile,
+                        styles.guessPercentileNull,
+                      ]}
+                    >
+                      —
+                    </Text>
+                  )}
+                  <Text
+                    style={[
+                      styles.guessSimilarity,
+                      { color: getSimilarityColor(guess.similarity) },
+                    ]}
+                  >
+                    {guess.similarity.toFixed(1)}
+                  </Text>
+                  <Text style={styles.guessEmoji}>
+                    {getTemperatureEmoji(guess.similarity)}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.guessRight}>
-                <Text style={styles.guessPercentile}>
-                  {getPercentileDisplay(guess.rank, gameState.guess_count)}
-                </Text>
-                <Text
-                  style={[
-                    styles.guessSimilarity,
-                    { color: getSimilarityColor(guess.similarity) },
-                  ]}
-                >
-                  {guess.similarity.toFixed(1)}
-                </Text>
-                <Text style={styles.guessEmoji}>
-                  {getTemperatureEmoji(guess.similarity)}
-                </Text>
-              </View>
-            </View>
-          ))}
+            ))}
 
           {gameState.guesses.length === 0 && (
             <View style={styles.emptyState}>
@@ -623,6 +638,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#6b7280",
     fontWeight: "600",
+  },
+  guessPercentileNull: {
+    color: "#d1d5db",
+    fontStyle: "italic",
   },
   guessSimilarity: {
     fontSize: 20,

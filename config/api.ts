@@ -20,7 +20,7 @@ export const API_ENDPOINTS = {
   HEALTH: "/",
   START_GAME: "/game/start",
   MAKE_GUESS: "/game/guess",
-  GET_GAME_STATE: (gameId: string) => `/game/${gameId}`,
+  GET_GAME_STATE: (gameId: string) => `/game/${gameId}/state`,
   GIVE_UP: (gameId: string) => `/game/${gameId}/give-up`,
   SIMILARITY: "/similarity",
 };

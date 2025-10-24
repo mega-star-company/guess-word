@@ -14,9 +14,9 @@ export interface GameState {
   clues_used?: number;
   clues_available?: string[];
   // Today's word proximity stats
-  today_word_1_similarity?: number;  // 999/1000
-  today_word_10_similarity?: number;  // 990/1000
-  today_word_1000_similarity?: number;  // 1/1000
+  today_word_1_similarity?: number; // 999/1000
+  today_word_10_similarity?: number; // 990/1000
+  today_word_1000_similarity?: number; // 1/1000
 }
 
 export interface ClueResponse {
@@ -31,6 +31,7 @@ export interface Guess {
   similarity: number;
   guess_number: number;
   rank: number;
+  percentile?: number | null; // Only set if word is in top 1000 of vocabulary
   is_correct: boolean;
 }
 
